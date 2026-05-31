@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI 달 정밀 탐사 VR 시스템</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-event-set-component@5.0.0/dist/aframe-event-set-component.min.js"></script>
+    <style>
+        /* [1] 다이나믹 우주 항해 인트로 스크린 */
+        #intro-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #030308; z-index: 100000; display: flex;
+            align-items: center; justify-content: center; overflow: hidden;
+            transition: opacity 1.2s ease-in-out;
+        }
+        .space-bg {
+            position: absolute; width: 100%; height: 100%;
+            background: radial-gradient(circle at 10% 50%, #1a102f 0%, #030308 100%);
+        }
+        .stars {
+            position: absolute; width: 2px; height: 2px; background: white;
+            box-shadow: 15vw 10vh #fff, 25vw 70vh rgba(255,255,255,0.4), 45vw 25vh #fff, 65vw 80vh rgba(255,255,255,0.7), 85vw 20vh #fff, 92vw 65vh #fff, 5vw 85vh rgba(255,255,255,0.6), 75vw 15vh rgba(255,255,255,0.3);
+        }
+        
+        /* 천체 기본 스타일 */
+        .celestial { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
+        /* 기존 .sun, .mercury, .venus 클래스는 모두 삭제합니다. */
+
+/* 지구와 달 크기 확대 및 위치 조정 */
+.earth { 
+    width: 140px; height: 140px; left: 20%; top: 50%; 
+    background: radial-gradient(circle at 30% 30%, #2b72cf, #0b2b5c); 
+    box-shadow: 0 0 40px rgba(43, 114, 207, 0.6), inset -15px -15px 25px rgba(0,0,0,0.6); 
+    z-index: 10; 
+}
+.moon-target { 
+    width: 60px; height: 60px; left: 80%; top: 50%; 
+    background: radial-gradient(circle at 30% 30%, #e0e0e0, #888888, #333333); 
+    box-shadow: 0 0 25px rgba(200, 200, 200, 0.7), inset -5px -5px 15px rgba(0,0,0,0.6); 
+    z-index: 10; 
+}
+
+/* 로켓 이동 경로 및 애니메이션 수정 */
+.rocket {
+    position: absolute; font-size: 38px; left: 20%; top: 50%; 
+    transform: translate(-50%, -50%) rotate(45deg); z-index: 100;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.6)); 
+    animation: cinematicHohmannLaunch 6s cubic-bezier(0.3, 0.8, 0.5, 1) forwards;
+}
+
+@keyframes cinematicHohmannLaunch {
+    0% { left: 20%; top: 50%; transform: translate(-50%, -50%) rotate(45deg) scale(1); opacity: 1; }
+    20% { left: 35%; top: 35%; transform: translate(-50%, -50%) rotate(75deg) scale(0.95); opacity: 1; }
+    50% { left: 50%; top: 30%; transform: translate(-50%, -50%) rotate(90deg) scale(0.9); opacity: 1; }
+    80% { left: 65%; top: 35%; transform: translate(-50%, -50%) rotate(105deg) scale(0.85); opacity: 1; }
+    95% { left: 80%; top: 50%; transform: translate(-50%, -50%) rotate(135deg) scale(0.8); opacity: 1; }
+    100% { left: 80%; top: 50%; transform: translate(-50%, -50%) rotate(135deg) scale(0.5); opacity: 0; }
+}
+
+        .intro-title { position: absolute; top: 15%; color: #fff; font-family: 'Malgun Gothic', sans-serif; font-size: 26px; font-weight: bold; letter-spacing: 4px; text-shadow: 0 0 20px rgba(200, 200, 200, 0.7); text-align: center; width: 100%; animation: pulseText 2s infinite alternate; }
+        @keyframes pulseText { 0% { opacity: 0.7; text-shadow: 0 0 10px rgba(200, 200, 200, 0.4); } 100% { opacity: 1; text-shadow: 0 0 25px rgba(255, 255, 255, 0.9); } }
+        .skip-btn { position: absolute; bottom: 30px; right: 30px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 11px 24px; border-radius: 25px; cursor: pointer; font-family: sans-serif; z-index: 100001; transition: 0.3s; }
+        .skip-btn:hover { background: rgba(200, 200, 200, 0.3); border-color: #ffffff; }
+
+        /* [2] 사진 선택 대기화면 상시 달 착륙&엔진 가동 라이브 애니메이션 배경 */
+        #dashboard-bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to top, #0a0a0c 0%, #1e1e24 35%, #050508 100%);
+            z-index: 1; overflow: hidden; display: block;
+        }
+        .dash-stars {
+            position: absolute; width: 100%; height: 100%; background-image: radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px); background-size: 200px 200px; opacity: 0.5;
+        }
+        .moon-horizon {
+            position: absolute; bottom: 0; width: 100%; height: 22%;
+            background: linear-gradient(to top, #050505 0%, #1a1a1a 100%);
+            border-top: 3px solid #444444; box-shadow: 0 -10px 30px rgba(200, 200, 200, 0.1);
+        }
+        
+        .landed-rocket-base {
+            position: absolute; right: 50%; bottom: 25%; 
+            display: flex; flex-direction: column; align-items: center; z-index: 1; 
+        }
+        .landed-rocket-body {
+            font-size: 200px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.4));
+            transform: rotate(-45deg); 
+            animation: rocketVibration 0.05s infinite alternate;
+            position: relative;
+            z-index: 3;
+        }
+        @keyframes rocketVibration {
+            0% { transform: rotate(-45deg) translate(0, 0); }
+            100% { transform: rotate(-45deg) translate(0.8px, 1.2px); }
+        }
+        
+        .thruster-fire-container {
+            position: absolute; 
+            bottom: -120px; 
+            left: 55%; transform: translateX(-50%);
+            width: 150px; height: 250px; pointer-events: none;
+            z-index: 2;
+        }
+        .flame-particle {
+            position: absolute; 
+            bottom: 20px; 
+            left: 50%; transform: translateX(-50%);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            background: linear-gradient(to bottom, #ffffff 0%, #00d2ff 20%, #ffaa00 50%, #ff3300 80%, transparent 100%);
+            animation: flameBurnLoop 0.4s infinite linear; opacity: 0;
+            mix-blend-mode: screen; filter: blur(2px);
+        }
+        .f-p1 { width: 45px; height: 140px; animation-delay: 0s; }
+        .f-p2 { width: 65px; height: 190px; animation-delay: 0.12s; margin-left: -3px; }
+        .f-p3 { width: 40px; height: 120px; animation-delay: 0.24s; margin-left: 3px; }
+        
+        @keyframes flameBurnLoop {
+            0% { transform: translateX(-50%) translateY(0) scaleX(1) scaleY(1); opacity: 1; filter: blur(1px); }
+            50% { transform: translateX(-50%) translateY(70px) scaleX(0.8) scaleY(0.9); opacity: 0.9; }
+            100% { transform: translateX(-50%) translateY(160px) scaleX(0.2) scaleY(0.5); opacity: 0; filter: blur(6px); }
+        }
+        .smoke-particle {
+            position: absolute; bottom: 100px; border-radius: 50%;
+            background: rgba(221, 221, 217, 0.8); filter: blur(5px);
+            animation: smokeDriftLoop 1.2s infinite ease-out; opacity: 0;
+        }
+        .s-p1 { width: 50px; height: 50px; left: -25px; animation-delay: 0s; --driftX: -50px; }
+        .s-p2 { width: 70px; height: 70px; left: 15px; animation-delay: 0.3s; --driftX: 60px; }
+        .s-p3 { width: 55px; height: 55px; left: -5px; animation-delay: 0.6s; --driftX: -20px; }
+        
+        @keyframes smokeDriftLoop {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { opacity: 0.7; }
+            60% { opacity: 0.4; }
+            100% { transform: translate(var(--driftX), 50px) scale(2.5); opacity: 0; filter: blur(22px); }
+        }
+
+        /* [3] 메인 대시보드 UI 레이아웃 및 뷰 스타일 */
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px; z-index: 9999;
+            background: rgba(20, 20, 25, 0.92); color: white; padding: 25px;
+            border-radius: 16px; font-family: 'Malgun Gothic', sans-serif; border: 2px solid #bdc3c7;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7); max-width: 320px;
+        }
+        
+        #nav-system {
+            position: absolute; top: 20px; right: 20px; z-index: 9999;
+            background: rgba(25, 25, 30, 0.95); padding: 16px; border-radius: 20px;
+            border: 2px solid #bdc3c7; color: white; text-align: center; display: none;
+            font-family: 'Malgun Gothic', sans-serif; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        
+        #minimap-container {
+            width: 160px; height: 160px; position: relative; margin: 0 auto 10px;
+            border-radius: 50%; border: 3px double #bdc3c7; background: #111111;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8); overflow: hidden;
+        }
+        #minimap-rotator { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border-radius: 50%; transition: transform 0.1s linear; z-index: 1; }
+        #marker-layer { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border-radius: 50%; z-index: 2; pointer-events: none; }
+
+        .compass-axis { position: absolute; background: rgba(189, 195, 199, 0.2); }
+        .axis-v { width: 1px; height: 100%; left: 50%; top: 0; }
+        .axis-h { height: 1px; width: 100%; top: 50%; left: 0; }
+
+        .direction-label { position: absolute; color: #ffffff; font-weight: bold; font-size: 14px; text-shadow: 0 0 4px #000; transform: translate(-50%, -50%); }
+        .dir-n { top: 12px; left: 50%; }
+        .dir-s { bottom: 2px; left: 50%; }
+        .dir-w { left: 12px; top: 50%; }
+        .dir-e { right: 2px; top: 50%; }
+        
+        .map-marker { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; }
+        #player-dot { width: 12px; height: 12px; background: #00ff00; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px #00ff00; z-index: 10; }
+        .station-dot { width: 7px; height: 7px; background: #3498db; box-shadow: 0 0 6px #3498db; }
+        .station-label { font-size: 8px; color: #87cefa; position: absolute; top: -12px; left: 5px; white-space: nowrap; font-weight: bold; }
+        #yutu-dot { width: 7px; height: 7px; background: #f1c40f; box-shadow: 0 0 5px #f1c40f; }
+        #viper-dot { width: 7px; height: 7px; background: #00ffff; box-shadow: 0 0 5px #00ffff; }
+        #rocket-dot { width: 9px; height: 9px; background: #ff0000; box-shadow: 0 0 8px #ff0000; z-index: 5; }
+        
+        #vr-controls { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: none; gap: 10px; }
+        button { padding: 11px 18px; cursor: pointer; background: #7f8c8d; border: none; color: white; border-radius: 20px; font-weight: bold; transition: background 0.2s; }
+        button:hover { background: #95a5a6; }
+        .fs-btn { background: #2980b9; }
+        .fs-btn:hover { background: #3498db; }
+        .file-label { display: block; padding: 12px; background: #2c3e50; text-align: center; border-radius: 8px; margin: 12px 0; cursor: pointer; font-size: 0.9em; border: 1px dashed #3498db; }
+        .file-label:hover { background: #34495e; }
+
+        #keypad-container { display: none; position: absolute; bottom: 30px; left: 30px; z-index: 9999; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px); gap: 6px; }
+        .keypad-btn { width: 100px; height: 100px; padding: 0; background: rgba(189, 195, 199, 0.75); color: black; border: none; border-radius: 50%; font-size: 60px; font-weight: bold; cursor: pointer; user-select: none; }
+        .keypad-btn:active { background: #7f8c8d; color: white;}
+    </style>
+</head>
+<body>
+
+    <div id="intro-screen">
+    <div class="space-bg"></div>
+    <div class="stars"></div>
+    <div class="intro-title">달에서 생존하기 위한 기지 설계</div>
+    
+    <div class="celestial earth" title="지구"></div>
+    <div class="celestial moon-target" title="달"></div>
+    
+    <svg class="orbit-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M 20 50 Q 50 20, 80 50" fill="none" stroke="rgba(200, 200, 200, 0.3)" stroke-dasharray="1.5" stroke-width="0.3"/>
+    </svg>
+
+    <div class="rocket">🚀</div>
+    <button class="skip-btn" onclick="endIntro()">건너뛰기 ➔</button>
+</div>
+
+    <div id="dashboard-bg">
+        <div class="dash-stars"></div>
+        <div class="moon-horizon"></div>
+        <div class="landed-rocket-base">
+            <div class="landed-rocket-body">🚀</div>
+            <div class="thruster-fire-container">
+                <div class="flame-particle f-p1"></div>
+                <div class="flame-particle f-p2"></div>
+                <div class="flame-particle f-p3"></div>
+                <div class="smoke-particle s-p1"></div>
+                <div class="smoke-particle s-p2"></div>
+                <div class="smoke-particle s-p3"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <h2 style="margin:0; font-size: 1.4em; color: #bdc3c7;">🌕 VR 달 탐사 </h2>
+        <p style="font-size:0.85em; color:#ccc; line-height: 1.5; margin-top: 8px;">각 모둠에서 설계한 달 기지 그림을 등록하여 <br>달을 탐사해 보세요 (다중 선택 가능).</p>
+        
+        <label class="file-label" for="imageInput">📂 달 기지 사진 선택 (최대 8장)</label>
+        <input type="file" id="imageInput" accept="image/*" multiple style="display:none;" onchange="handleFileCount(this)">
+        <div id="file-count" style="font-size:0.85em; color:#ffcc00; font-weight: bold; margin-bottom:15px; text-align: center;">선택된 파일 없음</div>
+        
+        <button onclick="startMission()" style="width: 100%; height: 45px; font-size: 1.05em; background: #34495e;">달 탐사 시작 🚀</button>
+    </div>
+
+    <div id="nav-system">
+        <div id="minimap-container">
+            <div id="minimap-rotator">
+                <div class="compass-axis axis-v"></div>
+                <div class="compass-axis axis-h"></div>
+                <div class="direction-label dir-n">N</div>
+                <div class="direction-label dir-s">S</div>
+                <div class="direction-label dir-w">W</div>
+                <div class="direction-label dir-e">E</div>
+            </div>
+            <div id="marker-layer">
+                <div id="yutu-dot" class="map-marker" title="YUTU-2"></div>
+                <div id="viper-dot" class="map-marker" title="VIPER"></div>
+                <div id="rocket-dot" class="map-marker"></div>
+                <div id="station-markers-layer"></div>
+            </div>
+            <div id="player-dot"></div>
+        </div>
+        <div id="compass" style="color:#ffffff; font-weight:bold; font-size: 1.1em; margin-bottom: 2px;">N 0°</div>
+        <div id="coord-display" style="color:#aaaaaa; font-size: 0.95em; font-family: monospace; letter-spacing: 1px;">X:0 Z:5</div>
+    </div>
+
+    <div id="vr-controls">
+        <button onclick="setEnv('day')">☀️ 낮 (태양광)</button>
+        <button onclick="setEnv('night')">🌑 밤</button>
+        <button onclick="setEnv('storm')">🌫️ 월면 먼지</button>
+        <button id="keypadToggleBtn" onclick="toggleKeypad()">🎮 키패드 켜기</button>
+        <button id="fullscreenBtn" class="fs-btn" onclick="toggleFullscreen()">🖥️ 전체화면</button>
+    </div>
+
+    <div id="keypad-container">
+        <div></div>
+        <button class="keypad-btn" onpointerdown="keypadState.up=true" onpointerup="keypadState.up=false" onpointerleave="keypadState.up=false">▲</button>
+        <div></div>
+        <button class="keypad-btn" onpointerdown="keypadState.left=true" onpointerup="keypadState.left=false" onpointerleave="keypadState.left=false">◀</button>
+        <div></div>
+        <button class="keypad-btn" onpointerdown="keypadState.right=true" onpointerup="keypadState.right=false" onpointerleave="keypadState.right=false">▶</button>
+        <div></div>
+        <button class="keypad-btn" onpointerdown="keypadState.down=true" onpointerup="keypadState.down=false" onpointerleave="keypadState.down=false">▼</button>
+        <div></div>
+    </div>
+
+    <a-scene id="scene" style="display: none;" fog="type: exponential; color: #111111; density: 0.005;" vr-mode-ui="enabled: false;">
+        <a-sky id="sky" color="#000000"></a-sky>
+        <a-plane rotation="-90 0 0" width="1000" height="1000" color="#606060"></a-plane>
+
+        <a-entity position="-25 0 -40">
+            <a-torus radius="18" tube="1.5" rotation="90 0 0" scale="1 0.5 1" color="#707070" material="roughness: 1; metalness: 0;"></a-torus>
+            <a-torus radius="19" tube="0.8" rotation="90 0 0" scale="1 0.3 1" color="#585858" material="roughness: 1;"></a-torus>
+            <a-cylinder radius="17.5" height="0.1" position="0 0.1 0" color="#383838" material="roughness: 1;"></a-cylinder>
+            <a-cone radius-bottom="3" radius-top="0" height="2" position="0 0.1 0" color="#404040" segments-radial="5" material="roughness: 1;"></a-cone>
+        </a-entity>
+
+        <a-entity position="-60 0 -10">
+            <a-cone radius-bottom="25" radius-top="15" height="12" position="0 6 0" color="#505050" segments-radial="7" material="roughness: 1; metalness: 0;"></a-cone>
+            <a-cone radius-bottom="15" radius-top="8" height="10" position="2 16 -2" color="#707070" segments-radial="6" material="roughness: 0.9;"></a-cone>
+            <a-cone radius-bottom="8" radius-top="2" height="8" position="0 24 1" color="#404040" segments-radial="5" material="roughness: 1;"></a-cone>
+        </a-entity>
+
+        <a-entity position="-40 0 -25">
+            <a-dodecahedron radius="2.5" position="0 1 0" color="#484848" rotation="45 30 15" material="roughness: 1;"></a-dodecahedron>
+            <a-dodecahedron radius="1.8" position="4 0.5 3" color="#383838" rotation="10 75 40" material="roughness: 1;"></a-dodecahedron>
+            <a-box width="3" height="2" depth="4" position="-5 0.5 -2" color="#505050" rotation="20 45 10" material="roughness: 1;"></a-box>
+            <a-tetrahedron radius="1.5" position="-2 0.8 5" color="#707070" rotation="60 10 30" material="roughness: 1;"></a-tetrahedron>
+        </a-entity>
+
+        <a-entity id="moon-crater" position="30 0 -30">
+            <a-cone radius-bottom="20" radius-top="15" height="4" position="0 2 0" color="#505050" segments-radial="12" open-ended="true" side="double" material="roughness: 1; metalness: 0;"></a-cone>
+            <a-cone radius-bottom="10" radius-top="15" height="4" position="0 2 0" color="#303030" segments-radial="12" open-ended="true" side="double" material="roughness: 1; metalness: 0;"></a-cone>
+            <a-circle radius="10" rotation="-90 0 0" position="0 0.05 0" color="#202020" material="roughness: 1;"></a-circle>
+            <a-dodecahedron radius="0.8" position="3 0.4 2" color="#484848" rotation="45 30 15"></a-dodecahedron>
+            <a-dodecahedron radius="1.2" position="-4 0.6 -1" color="#202020" rotation="10 75 40"></a-dodecahedron>
+        </a-entity>
+
+        <a-entity id="walkable-mesa" position="-30 0 -25">
+            <a-cone radius-bottom="25" radius-top="18" height="10" position="0 5 0" color="#505050" segments-radial="12" open-ended="true" side="double" material="roughness: 1; metalness: 0;"></a-cone>
+            <a-circle radius="18" rotation="-90 0 0" position="0 10.05 0" color="#606060" material="roughness: 1;"></a-circle>
+            <a-cylinder radius="3" height="4" position="0 12 0" color="#e0e0e0" material="metalness: 0.8;"></a-cylinder>
+            <a-entity position="0 14.5 0" look-at="#mainCamera">
+                <a-text value="LUNAR OUTPOST V1" align="center" color="#ffffff" width="6" font="kalsand"></a-text>
+            </a-entity>
+        </a-entity>
+
+        <a-entity id="crater-complex" position="45 0 -55">
+            <a-cone radius-bottom="16" radius-top="12" height="3" position="0 1.5 0" color="#333333" segments-radial="10" open-ended="true" side="double" material="roughness:1;"></a-cone>
+            <a-cone radius-bottom="8" radius-top="12" height="3" position="0 1.5 0" color="#1c1c1c" segments-radial="10" open-ended="true" side="double" material="roughness:1;"></a-cone>
+            <a-cone radius-bottom="2" radius-top="0" height="2.5" position="0 0 0" color="#505050" segments-radial="5"></a-cone>
+        </a-entity>
+
+        <a-entity id="sharp-peaks" position="55 0 40">
+            <a-cone radius-bottom="15" radius-top="1" height="18" position="0 9 0" color="#424242" segments-radial="4" rotation="0 15 5" material="roughness: 1;"></a-cone>
+            <a-cone radius-bottom="10" radius-top="0.5" height="13" position="-8 6.5 -4" color="#2c2c2c" segments-radial="5" rotation="5 -20 -5" material="roughness: 1;"></a-cone>
+            <a-cone radius-bottom="8" radius-top="0.2" height="10" position="6 5 5" color="#5a5a5a" segments-radial="3" rotation="-10 40 10" material="roughness: 1;"></a-cone>
+        </a-entity>
+
+        <a-entity id="canyon-wall" position="-10 0 -58">
+            <a-box width="28" height="14" depth="8" position="0 7 0" color="#4a4a4a" rotation="5 10 -2" material="roughness: 1;"></a-box>
+            <a-box width="18" height="18" depth="6" position="-12 9 -2" color="#3a3a3a" rotation="-5 25 3" material="roughness: 1;"></a-box>
+            <a-box width="22" height="11" depth="7" position="14 5.5 1" color="#626262" rotation="2 -15 -4" material="roughness: 1;"></a-box>
+        </a-entity>
+
+        <a-entity id="southwest-ridge" position="-55 0 50">
+            <a-cone radius-bottom="22" radius-top="18" height="8" position="0 4 0" color="#3e3e3e" segments-radial="6" material="roughness:1;"></a-cone>
+            <a-circle radius="18" rotation="-90 0 0" position="0 8.02 0" color="#2e2e2e"></a-circle>
+            <a-icosahedron radius="3" position="2 9 -1" color="#444444" rotation="15 35 60"></a-icosahedron>
+        </a-entity>
+
+        <a-entity id="moon-boulders-field">
+            <a-dodecahedron radius="0.5" position="2 0.2 20" color="#454545" rotation="10 20 30"></a-dodecahedron>
+            <a-icosahedron radius="0.4" position="-3 0.15 18" color="#5a5a5a" rotation="45 10 55"></a-icosahedron>
+            <a-dodecahedron radius="0.7" position="4 0.3 15" color="#252525" rotation="5 70 15"></a-dodecahedron>
+            
+            <a-dodecahedron radius="1.4" position="-5 0.6 -2" color="#555555" rotation="40 15 80"></a-dodecahedron>
+            <a-icosahedron radius="1.1" position="8 0.5 -12" color="#353535" rotation="25 60 10"></a-icosahedron>
+            <a-box width="1.5" height="0.8" depth="2" position="-12 0.3 2" color="#444444" rotation="15 40 -10"></a-box>
+            
+            <a-dodecahedron radius="0.9" position="-14 0.4 12" color="#222222" rotation="80 45 20"></a-dodecahedron>
+            <a-icosahedron radius="0.6" position="-6 0.2 6" color="#4c4c4c" rotation="15 -15 35"></a-icosahedron>
+
+            <a-dodecahedron radius="1.8" position="35 0.8 35" color="#464646" rotation="30 40 50"></a-dodecahedron>
+            <a-icosahedron radius="1.3" position="28 0.5 42" color="#252525" rotation="10 85 20"></a-icosahedron>
+            <a-dodecahedron radius="1.5" position="42 0.7 8" color="#565656" rotation="65 15 -10"></a-dodecahedron>
+
+            <a-icosahedron radius="2.2" position="15 1.0 -45" color="#3a3a3a" rotation="5 45 85"></a-icosahedron>
+            <a-dodecahedron radius="1.6" position="-15 0.7 -48" color="#4b4b4b" rotation="35 -20 40"></a-dodecahedron>
+        </a-entity>
+
+        <a-entity id="dynamic-stations"></a-entity>
+
+        <a-entity id="yutu" position="-27 1.2 5" rotation="0 45 0" scale="0.9 0.9 0.9">
+            <a-box width="1.6" height="0.8" depth="2.4" color="#d4af37" material="roughness: 0.3"></a-box>
+            <a-box width="1.5" height="0.1" depth="2.3" position="0 0.45 0" color="#222"></a-box>
+            <a-cylinder radius="0.04" height="1.4" position="0.3 0.7 0.8" color="#aaa"></a-cylinder>
+            <a-box width="0.4" height="0.3" depth="0.3" position="0.3 1.4 0.8" color="#eee"></a-box>
+            <a-sphere radius="0.06" position="0.3 1.4 0.95" color="#111"></a-sphere>
+            <a-cylinder radius="0.25" height="0.7" rotation="90 0 0" position="0 0.2 -1.3" color="#bbb"></a-cylinder>
+            <a-cylinder radius="0.03" height="0.8" position="-0.4 0.1 1.2" rotation="45 30 0" color="#777"></a-cylinder>
+            <a-box width="2.2" height="0.1" depth="0.1" position="0 -0.4 0" color="#666"></a-box>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="-1.0 -0.8 0.8" color="#333"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="-1.0 -0.8 0" color="#333"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="-1.0 -0.8 -0.8" color="#333"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="1.0 -0.8 0.8" color="#333"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="1.0 -0.8 0" color="#333"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="1.0 -0.8 -0.8" color="#333"></a-cylinder>
+            <a-text value="YUTU-2" position="0 2.2 0" align="center" color="#ffffff" width="6" look-at="#mainCamera"></a-text>
+        </a-entity>
+
+        <a-entity id="viper" position="25 1.2 5" rotation="0 -30 0" scale="0.9 0.9 0.9">
+            <a-box width="1.6" height="0.9" depth="2.5" color="#bdc3c7" material="roughness: 0.2"></a-box>
+            <a-box width="1.5" height="0.1" depth="2.4" position="0 0.5 0" color="#111"></a-box>
+            <a-cylinder radius="0.05" height="1.5" position="-0.3 0.7 0.9" color="#fff"></a-cylinder>
+            <a-box width="0.4" height="0.4" depth="0.4" position="-0.3 1.5 0.9" color="#eee"></a-box>
+            <a-cylinder radius="0.08" height="0.1" rotation="90 0 0" position="-0.3 1.5 1.1" color="#000"></a-cylinder>
+            <a-cylinder radius="0.25" height="0.8" rotation="90 30 0" position="0 0.3 -1.4" color="#777"></a-cylinder>
+            <a-cylinder radius="0.04" height="0.9" position="0.4 0.1 1.2" rotation="60 -20 0" color="#aaa"></a-cylinder>
+            <a-box width="0.2" height="0.2" depth="0.3" position="0.6 -0.3 1.6" color="#555"></a-box>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="-1.0 -0.8 0.8" color="#222"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="-1.0 -0.8 0" color="#222"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="-1.0 -0.8 -0.8" color="#222"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="1.0 -0.8 0.8" color="#222"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="1.0 -0.8 0" color="#222"></a-cylinder>
+            <a-cylinder radius="0.4" height="0.3" rotation="0 0 90" position="1.0 -0.8 -0.8" color="#222"></a-cylinder>
+            <a-text value="VIPER" position="0 2.4 0" align="center" color="#00ffff" width="6" look-at="#mainCamera"></a-text>
+        </a-entity>
+
+        <a-entity id="lunar-drone" position="21 0.4 7" rotation="0 15 0" scale="0.6 0.6 0.6">
+            <a-box width="0.4" height="0.4" depth="0.4" color="#ecf0f1"></a-box>
+            <a-box width="0.5" height="0.02" depth="0.2" position="0 0.4 0" color="#222"></a-box>
+            <a-box width="1.6" height="0.02" depth="0.05" position="0 0.3 0" rotation="0 45 0" color="#111"></a-box>
+            <a-box width="1.6" height="0.02" depth="0.05" position="0 0.22 0" rotation="0 -45 0" color="#111"></a-box>
+            <a-cylinder radius="0.01" height="0.6" position="-0.2 -0.2 0.2" rotation="30 0 -30" color="#999"></a-cylinder>
+            <a-cylinder radius="0.01" height="0.6" position="0.2 -0.2 0.2" rotation="30 0 30" color="#999"></a-cylinder>
+            <a-cylinder radius="0.01" height="0.6" position="-0.2 -0.2 -0.2" rotation="-30 0 -30" color="#999"></a-cylinder>
+            <a-cylinder radius="0.01" height="0.6" position="0.2 -0.2 -0.2" rotation="-30 0 30" color="#999"></a-cylinder>
+            <a-text value="LUNAR DRONE" position="0 0.8 0" align="center" color="#ffffff" width="4" look-at="#mainCamera"></a-text>
+        </a-entity>
+
+        <a-entity id="amb" light="type: ambient; intensity: 0.4; color: #fff"></a-entity>
+        <a-entity id="sunLight" light="type: directional; intensity: 1.2;" position="-1 10 1"></a-entity>
+
+        <a-sphere id="sunVisual" position="-10 100 10" radius="5" color="#fffde7" material="shader: flat; fog: false;"></a-sphere>
+        <a-entity id="starsVisual" visible="true"></a-entity>
+
+        <a-entity id="cameraRig" position="0 0 0">
+            <a-entity id="mainCamera" camera look-controls wasd-controls="acceleration: 70;" position="-5 1.6 25">
+            <a-cursor 
+    raycaster="objects: .clickable"
+    color="#FFFFFF"
+    event-set__mouseenter="color: #00FF00"  event-set__mouseleave="color: #FFFFFF"> </a-cursor></a-entity>
+        </a-entity>
+        
+        <a-entity id="human-lunar-rocket" position="-10 0 8" scale="0.9 0.9 0.9">
+            <a-entity position="0 7.7 0">
+                <a-cylinder radius="1.5" height="9" color="#f4f4f4" material="metalness: 0.3; roughness: 0.4;"></a-cylinder>
+                <a-cylinder radius="1.51" height="0.3" position="0 2.5 0" color="#3498db"></a-cylinder>
+                <a-cylinder radius="1.51" height="0.1" position="0 -2 0" color="#222222"></a-cylinder>
+
+                <a-entity position="0 -3 0">
+                    <a-box width="0.2" height="3" depth="2" position="1.4 -0.5 0" rotation="0 0 -15" color="#ffffff">
+                        <a-box width="0.21" height="0.2" depth="2" position="0 -1.5 0" color="#3498db"></a-box>
+                    </a-box>
+                    <a-box width="0.2" height="3" depth="2" position="-1.4 -0.5 0" rotation="0 0 15" color="#ffffff">
+                        <a-box width="0.21" height="0.2" depth="2" position="0 -1.5 0" color="#3498db"></a-box>
+                    </a-box>
+                    <a-box width="2" height="3" depth="0.2" position="0 -0.5 1.4" rotation="15 0 0" color="#ffffff">
+                        <a-box width="2" height="0.2" depth="0.21" position="0 -1.5 0" color="#3498db"></a-box>
+                    </a-box>
+                    <a-box width="2" height="3" depth="0.2" position="0 -0.5 -1.4" rotation="-15 0 0" color="#ffffff">
+                        <a-box width="2" height="0.2" depth="0.21" position="0 -1.5 0" color="#3498db"></a-box>
+                    </a-box>
+                </a-entity>
+
+                <a-cylinder radius="1.4" height="1" position="0 -5 0" color="#333333" material="metalness: 0.8; roughness: 0.2;"></a-cylinder>
+                <a-cone radius-bottom="0.6" radius-top="0.2" height="1.5" position="0 -6 0" color="#111111"></a-cone> 
+                <a-cone radius-bottom="0.4" radius-top="0.1" height="1.2" position="0.8 -5.8 0" color="#111111"></a-cone> 
+                <a-cone radius-bottom="0.4" radius-top="0.1" height="1.2" position="-0.8 -5.8 0" color="#111111"></a-cone>
+                <a-cone radius-bottom="0.4" radius-top="0.1" height="1.2" position="0 -5.8 0.8" color="#111111"></a-cone>
+                <a-cone radius-bottom="0.4" radius-top="0.1" height="1.2" position="0 -5.8 -0.8" color="#111111"></a-cone>
+
+                <a-entity position="0 -4.5 0">
+                    <a-cylinder radius="0.1" height="4" rotation="0 0 35" position="-1.5 -1.5 0" color="#222"></a-cylinder>
+                    <a-cylinder radius="0.4" height="0.1" position="-2.65 -3.2 0" color="#555"></a-cylinder> 
+                    <a-cylinder radius="0.05" height="2" rotation="0 0 -60" position="-1 -2 0" color="#777"></a-cylinder> 
+                    <a-cylinder radius="0.1" height="4" rotation="0 0 -35" position="1.5 -1.5 0" color="#222"></a-cylinder>
+                    <a-cylinder radius="0.4" height="0.1" position="2.65 -3.2 0" color="#555"></a-cylinder>
+                    <a-cylinder radius="0.05" height="2" rotation="0 0 60" position="1 -2 0" color="#777"></a-cylinder>
+                    <a-cylinder radius="0.1" height="4" rotation="35 0 0" position="0 -1.5 1.5" color="#222"></a-cylinder>
+                    <a-cylinder radius="0.4" height="0.1" position="0 -3.2 2.65" color="#555"></a-cylinder>
+                    <a-cylinder radius="0.05" height="2" rotation="-60 0 0" position="0 -2 1" color="#777"></a-cylinder>
+                    <a-cylinder radius="0.1" height="4" rotation="-35 0 0" position="0 -1.5 -1.5" color="#222"></a-cylinder>
+                    <a-cylinder radius="0.4" height="0.1" position="0 -3.2 -2.65" color="#555"></a-cylinder>
+                    <a-cylinder radius="0.05" height="2" rotation="60 0 0" position="0 -2 -1" color="#777"></a-cylinder>
+                </a-entity>
+
+                <a-cylinder radius="1.5" height="1.2" position="0 5.1 0" color="#1a1a1a" material="metalness: 0.7; roughness: 0.3;">
+                    <a-cylinder radius="1.52" height="1" color="#11" wireframe="true"></a-cylinder> 
+                </a-cylinder>
+
+                <a-cylinder radius-bottom="1.5" radius-top="1.1" height="3" position="0 7.2 0" color="#f4f4f4"></a-cylinder>
+                
+                <a-entity position="0 6.5 1.35" rotation="-5 0 0">
+                    <a-box width="1" height="1.8" depth="0.1" color="#555555"></a-box> 
+                    <a-box width="0.9" height="1.7" depth="0.12" color="#e0e0e0" material="metalness: 0.6;"></a-box> 
+                    <a-cylinder radius="0.2" height="0.13" rotation="90 0 0" position="0 0.4 0" color="#2c3e50"></a-cylinder>
+                    <a-cylinder radius="0.15" height="0.14" rotation="90 0 0" position="0 0.4 0" color="#3498db" material="metalness: 0.9; roughness: 0.1; opacity: 0.8;"></a-cylinder>
+                    <a-box width="0.05" height="0.3" depth="0.15" position="0.3 0 0" color="#3498db"></a-box>
+                </a-entity>
+
+                <a-cylinder radius="0.35" height="0.1" rotation="90 0 0" position="0 8.2 1.2" color="#222"></a-cylinder>
+                <a-cylinder radius="0.3" height="0.11" rotation="90 0 0" position="0 8.2 1.2" color="#87CEEB" material="metalness: 0.9; roughness: 0.1; opacity: 0.9;"></a-cylinder>
+
+                <a-box width="3.2" height="0.2" depth="0.2" position="0 8 0" color="#333"></a-box>
+                <a-box width="0.2" height="0.2" depth="3.2" position="0 8 0" color="#333"></a-box>
+
+                <a-cone radius-bottom="1.1" radius-top="0.1" height="3" position="0 10.2 0" color="#f4f4f4"></a-cone>
+                <a-sphere radius="0.1" position="0 11.7 0" color="#3498db"></a-sphere>
+
+                <a-entity position="0 13 0" look-at="#mainCamera">
+                    <a-text value="CheongDo MS ROCKET - LUNAR V1" align="center" color="#ffffff" width="12"></a-text>
+                </a-entity>
+            </a-entity>
+        </a-entity>
+    </a-scene>
+
+    <script>
+        const LIMIT_RADIUS = 60; 
+        const STATION_PRESETS = [
+            {x: 0, z: -25},
+            {x: -35, z: 15},
+            {x: 35, z: -10},
+            {x: 5, z: -44},
+            {x: 45, z: 20},
+            {x: -20, z: 35},
+            {x: 20, z: 45},
+            {x: 0, z: 50}
+        ];
+
+        const YUTU_POS = { x: -15, z: -10 };
+        const VIPER_POS = { x: 25, z: 5 };
+        const ROCKET_POS = { x: -10, z: 8 };
+        let activeStations = [];
+
+        const mainCamera = document.getElementById('mainCamera');
+        const compass = document.getElementById('compass');
+        const coordDisplay = document.getElementById('coord-display');
+        const minimapRotator = document.getElementById('minimap-rotator');
+        
+        const yutuMarker = document.getElementById('yutu-dot');
+        const viperMarker = document.getElementById('viper-dot');
+        const rocketMarker = document.getElementById('rocket-dot');
+
+        let keypadActive = false;
+        const keypadState = { up: false, down: false, left: false, right: false };
+        
+        // [추가] 지구의 3D 공간 상 좌표 변수 추가 (스크립트 상단 변수 선언부에 추가)
+const EARTH_POS = { x: 100, y: 150, z: -300 };
+
+        window.addEventListener('DOMContentLoaded', () => {
+    buildCosmicStars();
+    // 로딩 시간을 경로가 짧아진 것에 맞춰 7800에서 6500으로 단축
+    setTimeout(() => { endIntro(); }, 6500); 
+});
+
+        // [수정] 우주 배경(별) 및 지구 생성 함수
+function buildCosmicStars() {
+    const starsVisual = document.getElementById('starsVisual');
+    if (starsVisual && starsVisual.children.length === 0) {
+        // 우주의 무수한 별 생성
+        for (let i = 0; i < 200; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1); 
+            const radius = 350;
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+            
+            // [추가된 로직] 지구 주변 반경 70 안쪽에는 별을 생성하지 않아 달처럼 보이는 현상 제거
+            const distToEarth = Math.sqrt((x-EARTH_POS.x)**2 + (y-EARTH_POS.y)**2 + (z-EARTH_POS.z)**2);
+            if(distToEarth < 70) continue;
+
+            const star = document.createElement('a-sphere');
+            star.setAttribute('position', `${x} ${y} ${z}`);
+            star.setAttribute('radius', Math.random() * 0.6 + 0.2);
+            star.setAttribute('color', '#ffffff');
+            star.setAttribute('material', 'shader: flat; fog: false;');
+            starsVisual.appendChild(star);
+        }
+
+        // [수정된 로직] 달에서 올려다보는 거대하고 아름다운 지구 배치 (반경 6.0 -> 35.0 확대, 위치 변수화)
+        // [수정] 달에서 올려다보는 거대하고 디테일한 지구 배치
+const earthObj = document.createElement('a-sphere');
+earthObj.setAttribute('position', `${EARTH_POS.x} ${EARTH_POS.y} ${EARTH_POS.z}`); 
+earthObj.setAttribute('radius', '35.0'); 
+
+// 1. 기존 color 속성을 제거하고 육지, 바다, 구름이 합쳐진 고해상도 지구 이미지 텍스처 적용
+earthObj.setAttribute('src', 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/planets/earth_atmos_2048.jpg');
+
+// 2. 바다는 약간의 광택을 머금고, 우주 안개(fog)에 영향받지 않도록 재질(material) 세부 설정
+earthObj.setAttribute('material', 'shader: standard; roughness: 0.6; metalness: 0.1; fog: false;');
+
+// 3. 지구가 너무 정지해 있지 않도록 약간 기울여 자연스러운 각도 연출
+earthObj.setAttribute('rotation', '23.5 180 0');
+
+earthObj.setAttribute('class', 'clickable'); 
+earthObj.addEventListener('click', function () {
+    window.location.href = 'https://school.gyo6.net/cheongdoms/main.do?sysId=cheongdoms';
+});
+starsVisual.appendChild(earthObj);
+    }
+}
+
+        function endIntro() {
+            const intro = document.getElementById('intro-screen');
+            if(intro) {
+                intro.style.opacity = '0';
+                setTimeout(() => intro.remove(), 1200);
+            }
+        }
+
+        function toggleKeypad() {
+            const btn = document.getElementById('keypadToggleBtn');
+            const container = document.getElementById('keypad-container');
+            keypadActive = !keypadActive;
+            
+            if (keypadActive) {
+                btn.innerText = "🎮 키패드 끄기";
+                container.style.display = 'grid';
+            } else {
+                btn.innerText = "🎮 키패드 켜기";
+                container.style.display = 'none';
+                keypadState.up = false; keypadState.down = false; keypadState.left = false; keypadState.right = false;
+            }
+        }
+
+        function handleFileCount(input) {
+            const files = input.files;
+            if(files.length > 8) {
+                alert("사진은 최대 8장까지만 선택 가능합니다. 자동으로 앞의 8장만 선택됩니다.");
+            }
+            document.getElementById('file-count').innerText = `선택된 사진: ${Math.min(files.length, 8)}장`;
+        }
+
+        function startMission() {
+            const input = document.getElementById('imageInput');
+            const files = Array.from(input.files).slice(0, 8);
+            
+            if (files.length === 0) return alert("최소 1장 이상의 사진을 업로드해주세요.");
+
+            let loadedCount = 0;
+            const dynamicStations = document.getElementById('dynamic-stations');
+            const markersLayer = document.getElementById('station-markers-layer');
+
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const coords = STATION_PRESETS[index];
+                    const entity = document.createElement('a-entity');
+                    entity.setAttribute('position', `${coords.x} 0 ${coords.z}`);
+                    
+                    entity.innerHTML = `
+                        <a-image src="${e.target.result}" scale="10 10 10" position="0 5 0"></a-image>
+                        <a-cylinder color="silver" radius="0.08" height="10" position="5 4 0"></a-cylinder>
+                        <a-entity position="0 11 0" look-at="#mainCamera">
+                            <a-text value="STATION ${index + 1}" align="center" color="#00ffff" width="10" side="double" scale="2 2 2"></a-text>
+                        </a-entity>
+                    `;
+                    dynamicStations.appendChild(entity);
+
+                    const dot = document.createElement('div');
+                    dot.className = 'map-marker station-dot';
+                    const label = document.createElement('span');
+                    label.className = 'station-label';
+                    label.innerText = `S${index+1}`;
+                    dot.appendChild(label);
+                    markersLayer.appendChild(dot);
+
+                    activeStations.push({ element: dot, x: coords.x, z: coords.z });
+                    loadedCount++;
+                    if(loadedCount === files.length) launchScene();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function launchScene() {
+            document.getElementById('ui-layer').style.display = 'none';
+            document.getElementById('dashboard-bg').style.display = 'none';
+            document.getElementById('scene').style.display = 'block';
+            document.getElementById('vr-controls').style.display = 'flex';
+            document.getElementById('nav-system').style.display = 'block';
+            animate();
+        }
+
+        function toggleFullscreen() {
+            const btn = document.getElementById('fullscreenBtn');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => { btn.innerText = "❌ 전체화면 종료"; });
+            } else {
+                document.exitFullscreen().then(() => { btn.innerText = "🖥️ 전체화면"; });
+            }
+        }
+
+        function updateMarkerPosition(markerElement, targetX, targetZ, playerX, playerZ, theta) {
+            const dx = targetX - playerX;
+            const dz = targetZ - playerZ;
+            const localX = dx * Math.cos(theta) - dz * Math.sin(theta);
+            const localZ = dx * Math.sin(theta) + dz * Math.cos(theta);
+            const mapX = 50 + (localX / LIMIT_RADIUS) * 50;
+            const mapZ = 50 + (localZ / LIMIT_RADIUS) * 50;
+            markerElement.style.left = `${mapX}%`;
+            markerElement.style.top = `${mapZ}%`;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const pos = mainCamera.object3D.position;
+            const theta = mainCamera.object3D.rotation.y;
+
+            if (keypadActive) {
+                const moveSpeed = 0.12;
+                if (keypadState.up) { pos.x -= moveSpeed * Math.sin(theta); pos.z -= moveSpeed * Math.cos(theta); }
+                if (keypadState.down) { pos.x += moveSpeed * Math.sin(theta); pos.z += moveSpeed * Math.cos(theta); }
+                if (keypadState.left) { pos.x -= moveSpeed * Math.cos(theta); pos.z += moveSpeed * Math.sin(theta); }
+                if (keypadState.right) { pos.x += moveSpeed * Math.cos(theta); pos.z -= moveSpeed * Math.cos(theta); }
+            }
+
+            let targetY = 1.6; 
+
+            const CRATER_X = 30;  
+            const CRATER_Z = -30; 
+            const dx_crater = pos.x - CRATER_X;
+            const dz_crater = pos.z - CRATER_Z;
+            const distToCrater = Math.sqrt(dx_crater * dx_crater + dz_crater * dz_crater);
+
+            if (distToCrater < 20) {
+                if (distToCrater >= 15) {
+                    targetY = 1.6 + ((20 - distToCrater) / 5) * 4;
+                } else if (distToCrater >= 10) {
+                    targetY = 1.6 + ((distToCrater - 10) / 5) * 4;
+                } else {
+                    targetY = 1.6;
+                }
+            }
+
+            const MESA_X = -30;   
+            const MESA_Z = -25;   
+            const dx_mesa = pos.x - MESA_X;
+            const dz_mesa = pos.z - MESA_Z;
+            const distToMesa = Math.sqrt(dx_mesa * dx_mesa + dz_mesa * dz_mesa);
+
+            if (distToMesa < 25) {
+                if (distToMesa >= 18) {
+                    const climbRatio = (25 - distToMesa) / (25 - 18);
+                    targetY = 1.6 + (climbRatio * 10);
+                } else {
+                    targetY = 1.6 + 10; 
+                }
+            }
+
+            pos.y += (targetY - pos.y) * 0.1;
+
+            let deg = Math.round(theta * (180 / Math.PI));
+            if (deg < 0) deg += 360;
+            minimapRotator.style.transform = `rotate(${deg}deg)`;
+
+            updateMarkerPosition(yutuMarker, YUTU_POS.x, YUTU_POS.z, pos.x, pos.z, theta);
+            updateMarkerPosition(viperMarker, VIPER_POS.x, VIPER_POS.z, pos.x, pos.z, theta);
+            if (rocketMarker) {
+                updateMarkerPosition(rocketMarker, ROCKET_POS.x, ROCKET_POS.z, pos.x, pos.z, theta);
+            }
+            activeStations.forEach(station => { updateMarkerPosition(station.element, station.x, station.z, pos.x, pos.z, theta); });
+            
+            let dir = "N";
+            if (deg > 45 && deg <= 135) dir = "W";
+            else if (deg > 135 && deg <= 225) dir = "S";
+            else if (deg > 225 && deg <= 315) dir = "E";
+            compass.innerText = `${dir} ${deg % 360}°`;
+
+            coordDisplay.innerText = `X:${Math.round(pos.x)} Z:${Math.round(pos.z)}`;
+
+            const dist = Math.sqrt(pos.x**2 + pos.z**2);
+            if (dist > LIMIT_RADIUS) {
+                const angle = Math.atan2(pos.z, pos.x);
+                pos.x = Math.cos(angle) * LIMIT_RADIUS;
+                pos.z = Math.sin(angle) * LIMIT_RADIUS;
+            }
+        }
+
+        // 달 환경에 맞게 낮/밤/폭풍을 재설정 
+        // (달에는 대기가 없으므로 하늘은 항상 검고, 먼지 폭풍은 인위적인 효과로 연출)
+        function setEnv(mode) {
+            const sky = document.getElementById('sky');
+            const sceneEl = document.getElementById('scene');
+            const sunVisual = document.getElementById('sunVisual');
+            const sunLight = document.getElementById('sunLight');
+            const amb = document.getElementById('amb');
+            const starsVisual = document.getElementById('starsVisual');
+
+            if (mode === 'day') {
+                sky.setAttribute('color', '#000000'); 
+                sceneEl.setAttribute('fog', 'color: #111111; density: 0.005');
+                if (sunVisual) sunVisual.setAttribute('visible', 'true');
+                if (starsVisual) starsVisual.setAttribute('visible', 'true'); 
+                amb.setAttribute('intensity', '0.4');
+                sunLight.setAttribute('intensity', '1.2');
+                
+            } else if (mode === 'night') {
+                sky.setAttribute('color', '#000000'); 
+                sceneEl.setAttribute('fog', 'color: #050505; density: 0.01'); 
+                if (sunVisual) sunVisual.setAttribute('visible', 'false');
+                if (starsVisual) starsVisual.setAttribute('visible', 'true');
+                amb.setAttribute('intensity', '0.1'); 
+                sunLight.setAttribute('intensity', '0.0');
+                
+            } else if (mode === 'storm') {
+                sky.setAttribute('color', '#1a1a1a'); // 시야가 가려지는 느낌
+                sceneEl.setAttribute('fog', 'color: #333333; density: 0.05');
+                if (sunVisual) sunVisual.setAttribute('visible', 'false');
+                if (starsVisual) starsVisual.setAttribute('visible', 'false'); 
+                amb.setAttribute('intensity', '0.3'); 
+                sunLight.setAttribute('intensity', '0.2');
+            }
+        }
+    </script>
+</body>
+</html>
