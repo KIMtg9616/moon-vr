@@ -278,7 +278,13 @@
 
     <a-scene id="scene" style="display: none;" fog="type: exponential; color: #111111; density: 0.005;" vr-mode-ui="enabled: false;">
         <a-sky id="sky" color="#000000"></a-sky>
-        <a-plane rotation="-90 0 0" width="1000" height="1000" color="#606060"></a-plane>
+        <a-plane rotation="-90 0 0" 
+         width="1000" 
+         height="1000" 
+         src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/planets/moon_1024.jpg" 
+         repeat="60 60" 
+         material="roughness: 1; metalness: 0;">
+</a-plane>
 
         <a-entity position="-25 0 -40">
             <a-torus radius="18" tube="1.5" rotation="90 0 0" scale="1 0.5 1" color="#707070" material="roughness: 1; metalness: 0;"></a-torus>
